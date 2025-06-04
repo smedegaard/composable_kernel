@@ -22,6 +22,8 @@
 #include "ck/library/utility/literals.hpp"
 #include "ck/library/reference_tensor_operation/cpu/reference_gemm.hpp"
 #include "ck/library/utility/fill.hpp"
+#include "profiler/io_profiler.hpp"
+
 
 namespace ck {
 namespace profiler {
@@ -179,8 +181,9 @@ int profile_gemm_impl(int do_verification,
 
             float gb_per_sec = num_btype / 1.E6 / avg_time;
 
-            std::cout << "Perf: " << std::setw(10) << avg_time << " ms, " << tflops << " TFlops, "
-                      << gb_per_sec << " GB/s, " << op_name << std::endl;
+            auto metadata = ck::profiler::io::CreateGemmMetadata<ALayout, BLayout, CLayout, ADataType, BDataType, CDataType>(M, N, K);
+            ck::profiler::io::ReportResult(op_name, avg_time, tflops, gb_per_sec, metadata);
+
 
             if(tflops > best_tflops)
             {
@@ -250,51 +253,12 @@ int profile_gemm_impl(int do_verification,
 
             float gb_per_sec = num_btype / 1.E6 / avg_time;
 
-            if constexpr(is_same<CDataType, float>::value)
-            {
-                std::cout << "Best Perf for datatype = f32";
-            }
-            else if constexpr(is_same<CDataType, half_t>::value)
-            {
-                std::cout << "Best Perf for datatype = f16";
-            }
-            else if constexpr(is_same<CDataType, bhalf_t>::value)
-            {
-                std::cout << "Best Perf for datatype = bf16";
-            }
-            else if constexpr(is_same<CDataType, int8_t>::value)
-            {
-                std::cout << "Best Perf for datatype = int8";
-            }
-#if defined CK_ENABLE_FP8
-            else if constexpr(is_same<CDataType, f8_t>::value)
-            {
-                std::cout << "Best Perf for datatype = fp8";
-            }
-#endif
+            // Report the more accurate best result with metadata
+            auto metadata = ck::profiler::io::CreateGemmMetadata<ALayout, BLayout, CLayout, ADataType, BDataType, CDataType>(M, N, K);
+            ck::profiler::io::ReportResult(op_name, avg_time, tflops, gb_per_sec, metadata);
+            ck::profiler::io::ReportBestResult();
 
-            if constexpr(is_same<ALayout, tensor_layout::gemm::RowMajor>::value)
-            {
-                std::cout << " ALayout =  RowMajor";
-            }
-            else if constexpr(is_same<ALayout, tensor_layout::gemm::ColumnMajor>::value)
-            {
-                std::cout << " ALayout =  ColumnMajor";
-            }
 
-            if constexpr(is_same<BLayout, tensor_layout::gemm::RowMajor>::value)
-            {
-                std::cout << " BLayout =  RowMajor";
-            }
-            else if constexpr(is_same<BLayout, tensor_layout::gemm::ColumnMajor>::value)
-            {
-                std::cout << " BLayout =  ColumnMajor";
-            }
-
-            std::cout << " M = " << M << " N = " << N << " K = " << K << " StrideA = " << StrideA
-                      << " StrideB = " << StrideB << " StrideC = " << StrideC << " : " << avg_time
-                      << " ms, " << tflops << " TFlops, " << gb_per_sec << " GB/s, " << op_name
-                      << std::endl;
         }
     }
 
